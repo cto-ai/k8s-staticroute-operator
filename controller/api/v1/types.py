@@ -37,6 +37,13 @@ class StaticRoute(OpenAPIV3Schema):
             "description": "Gateway to route through",
             "jsonPath": ".spec.gateway",
         },
+        {
+            "name": "Multipath",
+            "type": "string",
+            "priority": 1,
+            "description": "Gateways list for multipath routing",
+            "jsonPath": ".spec.multipath",
+        },
     ]
 
     Destination = NewType("Destination", str)
@@ -51,7 +58,18 @@ class StaticRoute(OpenAPIV3Schema):
     )
     gateway: str = field(
         metadata=schema(
-            description="Gateway to route through (required)",
-            pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$",
+            description="Gateway to route through",
+            pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+        )
+    )
+
+    IpAddress = NewType("IpAddress", str)
+    schema(
+        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$",
+    )(IpAddress)
+
+    multipath: list[IpAddress] = field(
+        metadata=schema(
+            description="Gateways list for multipath routing (overrides gateway)"
         )
     )

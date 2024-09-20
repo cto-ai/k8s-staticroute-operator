@@ -15,9 +15,11 @@ spec:
       hostNetwork: true
       tolerations:
         - operator: Exists
+      imagePullSecrets:
+        - name: <PULL_SECRET_NAME>
       containers:
         - name: k8s-staticroute-operator
-          image: digitalocean/k8s-staticroute-operator:<OPERATOR_RELEASE>
+          image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
           imagePullPolicy: Always
           resources:
             requests:
@@ -25,8 +27,9 @@ spec:
             limits:
               memory: "150Mi"
           securityContext:
-            runAsNonRoot: true
             readOnlyRootFilesystem: true
+            privileged: true
+            runAsUser: 0
             capabilities:
               add:
                 - NET_ADMIN

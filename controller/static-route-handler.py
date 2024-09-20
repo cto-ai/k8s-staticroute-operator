@@ -20,29 +20,64 @@ from utils import valid_ip_address
 # =======================================================================================================
 
 
-def manage_static_route(operation, destination, gateway, logger=None):
+def manage_static_route(operation, destination, gateway=None, multipath=None,logger=None):
     operation_success = False
+    is_multipath = False
     message = ""
+    
+    if isinstance(multipath, list):
+        is_multipath = True
 
-    # Check if destination/gateway IP address/CIDR is valid first
-    if not valid_ip_address(destination) or not valid_ip_address(gateway):
-        message = f"Invalid IP address specified for route - dest: {destination}, gateway: {gateway}!"
-        if logger is not None:
-            logger.error(message)
-        return (False, message)
+    if is_multipath:
+        for route_gw in multipath:
+            gw_ip = ""
+            if isinstance(route_gw, dict):
+                if ("gateway" in route_gw) and ("hops" in route_gw):
+                    gw_ip = route_gw["gateway"]
+                else:
+                    message = f"Invalid IP address/hops specified for route - dest: {destination}!"
+                    if logger is not None:
+                            logger.error(message)
+                    return (False, message)
+            else:
+                gw_ip = route_gw
+
+            # Check if destination/gateway IP address/CIDR is valid for each path
+            if not valid_ip_address(destination) or not valid_ip_address(gw_ip):
+                message = f"Invalid IP address specified for route - dest: {destination}, gateway: {gw_ip}!"
+                if logger is not None:
+                        logger.error(message)
+                return (False, message)
+    else:
+
+    	# Check if destination/gateway IP address/CIDR is valid first
+    	if not valid_ip_address(destination) or not valid_ip_address(gateway):
+            message = f"Invalid IP address specified for route - dest: {destination}, gateway: {gateway}!"
+            if logger is not None:
+                logger.error(message)
+            return (False, message)
 
     # We don't want to mess with default GW settings, or with the '0.0.0.0' IP address
     if destination == DEFAULT_GW_CIDR or destination == NOT_USABLE_IP_ADDRESS:
-        message = f"Route {operation} request denied - dest: {destination}, gateway: {gateway}!"
+        message = f"Route {operation} request denied - dest: {destination}!"
         if logger is not None:
-            logger.error(message)
+                logger.error(message)
         return (False, message)
 
     with IPRoute() as ipr:
         try:
-            ipr.route(operation, dst=destination, gateway=gateway)
+            if is_multipath:
+                multipath_arr = []
+                for gw in multipath:
+                    if isinstance(gw, dict):
+                        multipath_arr.append({"gateway":gw["gateway"],"hops":gw["hops"]})
+                    else:
+                        multipath_arr.append({"gateway":gw})
+                ipr.route(operation, dst=destination, multipath=multipath_arr)    
+            else:
+                ipr.route(operation, dst=destination, gateway=gateway)
             operation_success = True
-            message = f"Success - Dest: {destination}, gateway: {gateway}, operation: {operation}."
+            message = f"Success - Dest: {destination}, gateway: {gateway}, multipath: {multipath}, operation: {operation}."
             if logger is not None:
                 logger.info(message)
         except Exception as ex:
@@ -62,6 +97,7 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
             operation=operation,
             destination=route["destination"],
             gateway=route["gateway"],
+            multipath=route["multipath"],
             logger=logger,
         )
 
@@ -70,6 +106,7 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
                 {
                     "destination": route["destination"],
                     "gateway": route["gateway"],
+                    "multipath": route["multipath"],
                     "status": ROUTE_NOT_READY_MSG,
                 }
             )
@@ -85,6 +122,7 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
             {
                 "destination": route["destination"],
                 "gateway": route["gateway"],
+                "multipath": route["multipath"],
                 "status": ROUTE_READY_MSG,
             }
         )
@@ -108,9 +146,10 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
 @kopf.on.create(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
 def create_fn(body, spec, logger, **_):
     destinations = spec.get("destinations", [])
-    gateway = spec["gateway"]
+    multipath = spec.get("multipath", None)
+    gateway = spec.get("gateway", None)
     routes_to_add_spec = [
-        {"destination": destination, "gateway": gateway} for destination in destinations
+        {"destination": destination, "gateway": gateway, "multipath": multipath} for destination in destinations
     ]
 
     return process_static_routes(
@@ -127,15 +166,17 @@ def create_fn(body, spec, logger, **_):
 
 @kopf.on.update(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
 def update_fn(body, old, new, logger, **_):
-    old_gateway = old["spec"]["gateway"]
-    new_gateway = new["spec"]["gateway"]
+    old_gateway = old["spec"].get("gateway", None)
+    new_gateway = new["spec"].get("gateway", None)
+    old_multipath = old["spec"].get("multipath", None)
+    new_multipath = new["spec"].get("multipath", None)
     old_destinations = old["spec"].get("destinations", [])
     new_destinations = new["spec"].get("destinations", [])
     destinations_to_delete = list(set(old_destinations) - set(new_destinations))
     destinations_to_add = list(set(new_destinations) - set(old_destinations))
 
     routes_to_delete_spec = [
-        {"destination": destination, "gateway": old_gateway}
+        {"destination": destination, "gateway": old_gateway, "multipath": old_multipath}
         for destination in destinations_to_delete
     ]
 
@@ -144,7 +185,7 @@ def update_fn(body, old, new, logger, **_):
     )
 
     routes_to_add_spec = [
-        {"destination": destination, "gateway": new_gateway}
+        {"destination": destination, "gateway": new_gateway, "multipath": new_multipath}
         for destination in destinations_to_add
     ]
 
@@ -163,9 +204,10 @@ def update_fn(body, old, new, logger, **_):
 @kopf.on.delete(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
 def delete(body, spec, logger, **_):
     destinations = spec.get("destinations", [])
-    gateway = spec["gateway"]
+    gateway = spec.get("gateway", None)
+    multipath= spec.get("multipath", None)
     routes_to_delete_spec = [
-        {"destination": destination, "gateway": gateway} for destination in destinations
+        {"destination": destination, "gateway": gateway, "multipath": multipath} for destination in destinations
     ]
 
     return process_static_routes(
