@@ -17,6 +17,17 @@ spec:
         - operator: Exists
       imagePullSecrets:
         - name: <PULL_SECRET_NAME>
+      initContainers:
+        - name: init-network
+          image: alpine:3.20
+          command: ["sysctl", "-w", "net.ipv4.fib_multipath_hash_policy=1"]
+          securityContext:
+            readOnlyRootFilesystem: true
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - NET_ADMIN
       containers:
         - name: k8s-staticroute-operator
           image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
@@ -28,8 +39,7 @@ spec:
               memory: "150Mi"
           securityContext:
             readOnlyRootFilesystem: true
-            privileged: true
-            runAsUser: 0
+            runAsNonRoot: true
             capabilities:
               add:
                 - NET_ADMIN

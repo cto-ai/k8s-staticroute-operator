@@ -7,5 +7,5 @@ RUN apk add libcap && \
     # python interpreter needs NET_ADMIN privileges to alter routes on the host
     setcap 'cap_net_admin+ep' $(readlink -f $(which python))
 COPY controller/ ./
-RUN chmod +x start.sh
-ENTRYPOINT [ "/bin/sh","start.sh"]
+USER 405
+ENTRYPOINT ["kopf", "run", "--all-namespaces", "--verbose", "static-route-handler.py"]

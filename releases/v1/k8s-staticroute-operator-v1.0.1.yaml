@@ -180,12 +180,25 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
           readOnlyRootFilesystem: true
-          runAsUser: 0
+          runAsNonRoot: true
       hostNetwork: true
       imagePullSecrets:
       - name: registry-cto-ai
+      initContainers:
+      - command:
+        - sysctl
+        - -w
+        - net.ipv4.fib_multipath_hash_policy=1
+        image: alpine:3.20
+        name: init-network
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+          readOnlyRootFilesystem: true
+          runAsUser: 0
       serviceAccountName: k8s-staticroute-operator
       tolerations:
       - operator: Exists
