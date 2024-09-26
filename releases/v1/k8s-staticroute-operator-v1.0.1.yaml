@@ -164,7 +164,7 @@ subjects:
 ---
 apiVersion: v1
 data:
-  service-token: TTdDWTV6dkVlNEpwR2g2QXF5RlFYVQ==
+  service-token: <USE YOUR OWN VALUE>
 kind: Secret
 metadata:
   annotations:
@@ -219,7 +219,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/nobid-prod-container-registry/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: k8s-staticroute-operator
         resources:
@@ -233,7 +233,7 @@ spec:
             - NET_ADMIN
           readOnlyRootFilesystem: true
       imagePullSecrets:
-      - name: registry-cto-ai
+      - name: nobid-prod-container-registry
       serviceAccountName: k8s-staticroute-operator
       tolerations:
       - operator: Exists
@@ -266,13 +266,13 @@ spec:
             secretKeyRef:
               key: service-token
               name: static-route-operator-token
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/nobid-prod-container-registry/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: k8s-staticroute-operator-service
         ports:
         - containerPort: 5000
       imagePullSecrets:
-      - name: registry-cto-ai
+      - name: nobid-prod-container-registry
       tolerations:
       - operator: Exists
 ---
@@ -307,7 +307,7 @@ spec:
             secretKeyRef:
               key: service-token
               name: static-route-operator-token
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/nobid-prod-container-registry/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: k8s-staticroute-operator-worker
         resources:
@@ -322,11 +322,11 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       imagePullSecrets:
-      - name: registry-cto-ai
+      - name: nobid-prod-container-registry
       initContainers:
       - args:
         - init
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/nobid-prod-container-registry/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: init-network
         securityContext:
