@@ -1,27 +1,38 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: k8s-staticroute-operator
+  name: k8s-staticroute-operator-worker
 spec:
-  replicas: 2
   selector:
     matchLabels:
-      name: k8s-staticroute-operator
+      name: k8s-staticroute-operator-worker
   template:
     metadata:
       labels:
-        name: k8s-staticroute-operator
+        name: k8s-staticroute-operator-worker
     spec:
-      serviceAccountName: k8s-staticroute-operator
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       tolerations:
         - operator: Exists
       imagePullSecrets:
         - name: <PULL_SECRET_NAME>
-      containers:
-        - name: k8s-staticroute-operator
+      initContainers:
+        - name: init-network
           image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
           imagePullPolicy: Always
+          args: ["init"]
+          securityContext:
+            privileged: true
+            runAsUser: 0
+            capabilities:
+              add:
+                - NET_ADMIN
+      containers:
+        - name: k8s-staticroute-operator-worker
+          image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
+          imagePullPolicy: Always
+          args: ["worker"]
           resources:
             requests:
               memory: "100Mi"
@@ -29,14 +40,13 @@ spec:
               memory: "150Mi"
           securityContext:
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
             capabilities:
               add:
                 - NET_ADMIN
           env:
-            - name: OPERATOR_NAME
-              value: "k8s-staticroute-operator"
-            - name: NODE_HOSTNAME
+            - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: TOKEN
+              value: "12345"

@@ -1,4 +1,5 @@
 import kopf
+import time
 from pyroute2 import IPRoute
 from api.v1.types import StaticRoute
 from constants import DEFAULT_GW_CIDR

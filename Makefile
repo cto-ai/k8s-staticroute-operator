@@ -37,7 +37,7 @@ CONTAINER_REGISTRY		?= registry.digitalocean.com\/cto-ai
 PULL_SECRET_NAME		?= registry-cto-ai
 
 # Docker related stuff
-CONTROLLER_IMAGE_TAG  ?= registry.digitalocean.com/$(ORGANIZATION)/$(PROJECT_NAME):v$(PROJECT_VERSION)
+CONTROLLER_IMAGE_TAG  ?= $(CONTAINER_REGISTRY)/$(PROJECT_NAME):v$(PROJECT_VERSION)
 
 # Kubernetes related stuff
 CURRENT_K8S_CLUSTER        ?= $(shell $(KUBECTL_CMD) config current-context)

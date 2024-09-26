@@ -142,14 +142,30 @@ subjects:
   name: k8s-staticroute-operator
   namespace: static-routes
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    provider: digitalocean
+  name: k8s-staticroute-operator-service
+  namespace: static-routes
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    name: k8s-staticroute-operator-service
+---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   annotations:
     provider: digitalocean
   name: k8s-staticroute-operator
   namespace: static-routes
 spec:
+  replicas: 2
   selector:
     matchLabels:
       name: k8s-staticroute-operator
@@ -185,20 +201,101 @@ spec:
       hostNetwork: true
       imagePullSecrets:
       - name: registry-cto-ai
+      serviceAccountName: k8s-staticroute-operator
+      tolerations:
+      - operator: Exists
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    provider: digitalocean
+  name: k8s-staticroute-operator-service
+  namespace: static-routes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: k8s-staticroute-operator-service
+  template:
+    metadata:
+      annotations:
+        provider: digitalocean
+      labels:
+        name: k8s-staticroute-operator-service
+    spec:
+      containers:
+      - args:
+        - service
+        env:
+        - name: TOKEN
+          value: "12345"
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        imagePullPolicy: Always
+        name: k8s-staticroute-operator-service
+        ports:
+        - containerPort: 5000
+      imagePullSecrets:
+      - name: registry-cto-ai
+      tolerations:
+      - operator: Exists
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    provider: digitalocean
+  name: k8s-staticroute-operator-worker
+  namespace: static-routes
+spec:
+  selector:
+    matchLabels:
+      name: k8s-staticroute-operator-worker
+  template:
+    metadata:
+      annotations:
+        provider: digitalocean
+      labels:
+        name: k8s-staticroute-operator-worker
+    spec:
+      containers:
+      - args:
+        - worker
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: TOKEN
+          value: "12345"
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        imagePullPolicy: Always
+        name: k8s-staticroute-operator-worker
+        resources:
+          limits:
+            memory: 150Mi
+          requests:
+            memory: 100Mi
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          readOnlyRootFilesystem: true
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      imagePullSecrets:
+      - name: registry-cto-ai
       initContainers:
-      - command:
-        - sysctl
-        - -w
-        - net.ipv4.fib_multipath_hash_policy=1
-        image: alpine:3.20
+      - args:
+        - init
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        imagePullPolicy: Always
         name: init-network
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
           privileged: true
-          readOnlyRootFilesystem: true
           runAsUser: 0
-      serviceAccountName: k8s-staticroute-operator
       tolerations:
       - operator: Exists

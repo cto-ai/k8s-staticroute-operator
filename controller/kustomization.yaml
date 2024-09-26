@@ -15,3 +15,5 @@ resources:
   - config/rbac/role_binding.yaml
   - config/crd.yaml
   - config/manager.yaml
+  - config/service.yaml
+  - config/workers.yaml

@@ -1,0 +1,19 @@
+version: '3'
+services:
+  static-route-controler-service:
+    build: ./
+    command: service
+    environment:
+      - TOKEN=12345
+    ports:
+      - "8080:5000"
+  static-route-controler-worker:
+    build: ./
+    depends_on:
+      - static-route-controler-service
+    command: worker
+    environment:
+      - TOKEN=12345
+      - API_HOST=static-route-controler-service
+      - API_PORT=5000
+      - NODE_NAME=ingress-s8wda4

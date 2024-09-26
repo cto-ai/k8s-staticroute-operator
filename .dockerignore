@@ -14,5 +14,8 @@
 # YAML
 **/*.yaml
 
+# DB
+**/*.db
+
 # Generator script(s)
 **/generate_api.py
