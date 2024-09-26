@@ -13,7 +13,6 @@ spec:
         name: k8s-staticroute-operator
     spec:
       serviceAccountName: k8s-staticroute-operator
-      hostNetwork: true
       tolerations:
         - operator: Exists
       imagePullSecrets:
@@ -29,11 +28,15 @@ spec:
               memory: "150Mi"
           securityContext:
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
             capabilities:
               add:
                 - NET_ADMIN
           env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: static-route-operator-token
+                  key: service-token
             - name: OPERATOR_NAME
               value: "k8s-staticroute-operator"
             - name: NODE_HOSTNAME

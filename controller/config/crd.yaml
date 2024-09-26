@@ -32,6 +32,11 @@ spec:
       name: Multipath
       priority: 1
       type: string
+    - description: Sets the policy for apply this route set
+      jsonPath: .spec.nodeSelector
+      name: NodeSelector
+      priority: 1
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -50,11 +55,26 @@ spec:
                 pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
                 type: string
               multipath:
-                description: Gateways list for multipath routing (overrides gateway)
                 items:
                   pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
                   type: string
                 type: array
+              nodeSelector:
+                description: Sets the policy for apply this route set
+                properties:
+                  key:
+                    type: string
+                  operation:
+                    type: string
+                  values:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - key
+                - operation
+                - values
+                type: object
             required:
             - destinations
             type: object

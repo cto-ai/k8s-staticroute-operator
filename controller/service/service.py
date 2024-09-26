@@ -116,7 +116,13 @@ def token_required(f):
         if not token:      
             return make_response(jsonify({'message': 'a valid token is missing'}),401)
 
-        admin_token = os.environ.get("TOKEN")
+        
+        raw_token=os.environ.get("TOKEN")
+        if isinstance(raw_token, (bytes, bytearray)):
+            admin_token=str(raw_token,'utf-8').strip()
+        else:
+            admin_token=raw_token
+            
         if admin_token == token:
             current_user = {"id":1, "name":"admin", "role":"admin"}
         else:

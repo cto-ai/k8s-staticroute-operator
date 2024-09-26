@@ -39,7 +39,6 @@ spec:
             limits:
               memory: "150Mi"
           securityContext:
-            readOnlyRootFilesystem: true
             capabilities:
               add:
                 - NET_ADMIN
@@ -49,4 +48,7 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
             - name: TOKEN
-              value: "12345"
+              valueFrom:
+                secretKeyRef:
+                  name: static-route-operator-token
+                  key: service-token

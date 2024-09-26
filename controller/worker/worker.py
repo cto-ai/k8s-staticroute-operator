@@ -13,7 +13,11 @@ api_host=os.environ.get("API_HOST") or "k8s-staticroute-operator-service"
 api_port=os.environ.get("API_PORT") or "80"
 api_url=f"http://{api_host}:{api_port}"
 node_name=os.environ.get("NODE_NAME")
-token=os.environ.get("TOKEN")
+raw_token=os.environ.get("TOKEN")
+if isinstance(raw_token, (bytes, bytearray)):
+    token=str(raw_token,'utf-8').strip()
+else:
+    token=raw_token
 
 def get_routes(api_url,token,node):
     data=[]
@@ -122,7 +126,11 @@ def get_routing_status():
                 if multipath is not None:
                     multipath.sort()
                 append = True
-                dst = route.get_attr('RTA_DST')
+                if "dst_len" in route:
+                    if route["dst_len"] == 32:
+                        dst = route.get_attr('RTA_DST')
+                    else:
+                        dst = f"{route.get_attr('RTA_DST')}/{route['dst_len']}"
                 gateway = route.get_attr('RTA_GATEWAY')
                 if dst is None:
                     append = False

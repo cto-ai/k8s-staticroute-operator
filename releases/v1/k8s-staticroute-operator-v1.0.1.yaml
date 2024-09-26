@@ -41,6 +41,11 @@ spec:
       name: Multipath
       priority: 1
       type: string
+    - description: Sets the policy for apply this route set
+      jsonPath: .spec.nodeSelector
+      name: NodeSelector
+      priority: 1
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -59,11 +64,26 @@ spec:
                 pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
                 type: string
               multipath:
-                description: Gateways list for multipath routing (overrides gateway)
                 items:
                   pattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}$
                   type: string
                 type: array
+              nodeSelector:
+                description: Sets the policy for apply this route set
+                properties:
+                  key:
+                    type: string
+                  operation:
+                    type: string
+                  values:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - key
+                - operation
+                - values
+                type: object
             required:
             - destinations
             type: object
@@ -143,6 +163,16 @@ subjects:
   namespace: static-routes
 ---
 apiVersion: v1
+data:
+  service-token: TTdDWTV6dkVlNEpwR2g2QXF5RlFYVQ==
+kind: Secret
+metadata:
+  annotations:
+    provider: digitalocean
+  name: static-route-operator-token
+  namespace: static-routes
+---
+apiVersion: v1
 kind: Service
 metadata:
   annotations:
@@ -178,6 +208,11 @@ spec:
     spec:
       containers:
       - env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: service-token
+              name: static-route-operator-token
         - name: OPERATOR_NAME
           value: k8s-staticroute-operator
         - name: NODE_HOSTNAME
@@ -197,8 +232,6 @@ spec:
             add:
             - NET_ADMIN
           readOnlyRootFilesystem: true
-          runAsNonRoot: true
-      hostNetwork: true
       imagePullSecrets:
       - name: registry-cto-ai
       serviceAccountName: k8s-staticroute-operator
@@ -229,7 +262,10 @@ spec:
         - service
         env:
         - name: TOKEN
-          value: "12345"
+          valueFrom:
+            secretKeyRef:
+              key: service-token
+              name: static-route-operator-token
         image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: k8s-staticroute-operator-service
@@ -267,7 +303,10 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         - name: TOKEN
-          value: "12345"
+          valueFrom:
+            secretKeyRef:
+              key: service-token
+              name: static-route-operator-token
         image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
         imagePullPolicy: Always
         name: k8s-staticroute-operator-worker
@@ -280,7 +319,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          readOnlyRootFilesystem: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       imagePullSecrets:

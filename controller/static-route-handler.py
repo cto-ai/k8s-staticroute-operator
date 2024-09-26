@@ -1,5 +1,7 @@
 import kopf
-import time
+import os, sys, time
+import requests
+import json
 from pyroute2 import IPRoute
 from api.v1.types import StaticRoute
 from constants import DEFAULT_GW_CIDR
@@ -21,7 +23,44 @@ from utils import valid_ip_address
 # =======================================================================================================
 
 
-def manage_static_route(operation, destination, gateway=None, multipath=None,logger=None):
+api_host=os.environ.get("API_HOST") or "k8s-staticroute-operator-service"
+api_port=os.environ.get("API_PORT") or "80"
+api_url=f"http://{api_host}:{api_port}"
+raw_token=os.environ.get("TOKEN")
+if isinstance(raw_token, (bytes, bytearray)):
+    token=str(raw_token,'utf-8').strip()
+else:
+    token=raw_token
+
+def apply_operation(data,operation,logger=None):
+    is_success=False
+    if operation == "add":
+        try:
+            headers = {'content-type': 'application/json', 'Authorization': f'{token}' }
+            json_data = data
+            response = requests.post(f'{api_url}/api/v1/route',headers=headers,json=json_data)
+            json_response=response.json()
+            if logger is not None:
+                logger.info(f'service response: {json.dumps(json_response)}')
+            is_success=True
+        except Exception as e:
+            if logger is not None:
+                logger.error(f'Failed calling API {e}')
+    if operation == "del":
+        try:
+            headers = {'content-type': 'application/json', 'Authorization': f'{token}' }
+            json_data = data
+            response = requests.delete(f'{api_url}/api/v1/route',headers=headers,json=json_data)
+            json_response=response.json()
+            if logger is not None:
+                logger.info(f'service response: {json.dumps(json_response)}')
+            is_success=True
+        except Exception as e:
+            if logger is not None:
+                logger.error(f'Failed calling API {e}')
+    return is_success
+
+def manage_static_route(name, operation, destination, gateway=None, multipath=None,selector=None,logger=None):
     operation_success = False
     is_multipath = False
     message = ""
@@ -65,49 +104,50 @@ def manage_static_route(operation, destination, gateway=None, multipath=None,log
                 logger.error(message)
         return (False, message)
 
-    with IPRoute() as ipr:
-        try:
-            if is_multipath:
-                multipath_arr = []
-                for gw in multipath:
-                    if isinstance(gw, dict):
-                        multipath_arr.append({"gateway":gw["gateway"],"hops":gw["hops"]})
-                    else:
-                        multipath_arr.append({"gateway":gw})
-                ipr.route(operation, dst=destination, multipath=multipath_arr)    
-            else:
-                ipr.route(operation, dst=destination, gateway=gateway)
-            operation_success = True
-            message = f"Success - Dest: {destination}, gateway: {gateway}, multipath: {multipath}, operation: {operation}."
-            if logger is not None:
-                logger.info(message)
-        except Exception as ex:
-            operation_success = False
-            message = f"Route {operation} failed! Error message: {ex}"
-            if logger is not None:
-                logger.error(message)
+    destination_val = destination.split("/")
+    if len(destination_val) > 1:
+        if destination_val[1] == "32":
+            destination = destination_val[0]
+    data = {}
+    if is_multipath:
+        data = {"rule_set":name,"destination":destination,"multipath":multipath}
+    else:
+        data = {"rule_set":name,"destination":destination,"gateway":gateway}
+
+    if selector:
+        data["selector"] = selector["operation"]
+        data["selector_key"] = selector["key"]
+        data["selector_value"] = selector["values"]
+    apply_operation(operation=operation,data=data,logger=logger) 
+    operation_success = True
+    
+        
 
     return (operation_success, message)
 
 
-def process_static_routes(routes, operation, event_ctx=None, logger=None):
+def process_static_routes(name, routes, operation,event_ctx=None, logger=None):
     status = []
 
     for route in routes:
         operation_succeeded, message = manage_static_route(
+            name=name,
             operation=operation,
             destination=route["destination"],
             gateway=route["gateway"],
             multipath=route["multipath"],
+            selector=route["selector"],
             logger=logger,
         )
 
         if not operation_succeeded:
             status.append(
                 {
+                    "name": name,
                     "destination": route["destination"],
                     "gateway": route["gateway"],
                     "multipath": route["multipath"],
+                    "selector": route["selector"],
                     "status": ROUTE_NOT_READY_MSG,
                 }
             )
@@ -121,9 +161,11 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
 
         status.append(
             {
+                "name": name,
                 "destination": route["destination"],
                 "gateway": route["gateway"],
                 "multipath": route["multipath"],
+                "selector": route["selector"],
                 "status": ROUTE_READY_MSG,
             }
         )
@@ -145,16 +187,17 @@ def process_static_routes(routes, operation, event_ctx=None, logger=None):
 
 @kopf.on.resume(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
 @kopf.on.create(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
-def create_fn(body, spec, logger, **_):
+def create_fn(name, body, spec, logger, **_):
     destinations = spec.get("destinations", [])
+    selector = spec.get("nodeSelector", None)
     multipath = spec.get("multipath", None)
     gateway = spec.get("gateway", None)
     routes_to_add_spec = [
-        {"destination": destination, "gateway": gateway, "multipath": multipath} for destination in destinations
+        {"destination": destination, "gateway": gateway, "multipath": multipath, "selector":selector} for destination in destinations
     ]
 
     return process_static_routes(
-        routes=routes_to_add_spec, operation="add", event_ctx=body, logger=logger
+        name=name,routes=routes_to_add_spec, operation="add", event_ctx=body, logger=logger
     )
 
 
@@ -166,9 +209,11 @@ def create_fn(body, spec, logger, **_):
 
 
 @kopf.on.update(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
-def update_fn(body, old, new, logger, **_):
+def update_fn(name, body, old, new, logger, **_):
     old_gateway = old["spec"].get("gateway", None)
     new_gateway = new["spec"].get("gateway", None)
+    old_selector = old["spec"].get("nodeSelector", None)
+    new_selector = new["spec"].get("nodeSelector", None)
     old_multipath = old["spec"].get("multipath", None)
     new_multipath = new["spec"].get("multipath", None)
     old_destinations = old["spec"].get("destinations", [])
@@ -177,21 +222,21 @@ def update_fn(body, old, new, logger, **_):
     destinations_to_add = list(set(new_destinations) - set(old_destinations))
 
     routes_to_delete_spec = [
-        {"destination": destination, "gateway": old_gateway, "multipath": old_multipath}
+        {"destination": destination, "gateway": old_gateway, "multipath": old_multipath, "selector": old_selector}
         for destination in destinations_to_delete
     ]
 
     process_static_routes(
-        routes=routes_to_delete_spec, operation="del", event_ctx=body, logger=logger
+        name=name,routes=routes_to_delete_spec, operation="del", event_ctx=body, logger=logger
     )
 
     routes_to_add_spec = [
-        {"destination": destination, "gateway": new_gateway, "multipath": new_multipath}
+        {"destination": destination, "gateway": new_gateway, "multipath": new_multipath, "selector": new_selector}
         for destination in destinations_to_add
     ]
 
     return process_static_routes(
-        routes=routes_to_add_spec, operation="add", event_ctx=body, logger=logger
+        name=name,routes=routes_to_add_spec, operation="add", event_ctx=body, logger=logger
     )
 
 
@@ -203,14 +248,15 @@ def update_fn(body, old, new, logger, **_):
 
 
 @kopf.on.delete(StaticRoute.__group__, StaticRoute.__version__, StaticRoute.__name__)
-def delete(body, spec, logger, **_):
+def delete(name, body, spec, logger, **_):
     destinations = spec.get("destinations", [])
     gateway = spec.get("gateway", None)
+    selector = spec.get("nodeSelector", None)
     multipath= spec.get("multipath", None)
     routes_to_delete_spec = [
-        {"destination": destination, "gateway": gateway, "multipath": multipath} for destination in destinations
+        {"destination": destination, "gateway": gateway, "multipath": multipath, "selector":selector} for destination in destinations
     ]
 
     return process_static_routes(
-        routes=routes_to_delete_spec, operation="del", event_ctx=body, logger=logger
+        name=name,routes=routes_to_delete_spec, operation="del", event_ctx=body, logger=logger
     )

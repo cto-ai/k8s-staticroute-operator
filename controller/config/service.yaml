@@ -25,7 +25,10 @@ spec:
           - containerPort: 5000
           env:
             - name: TOKEN
-              value: "12345"
+              valueFrom:
+                secretKeyRef:
+                  name: static-route-operator-token
+                  key: service-token
 ---
 apiVersion: v1
 kind: Service
