@@ -7,7 +7,7 @@
 
 # Project related stuff
 PROJECT_NAME               ?= k8s-staticroute-operator
-ORGANIZATION               ?= digitalocean
+ORGANIZATION               ?= cto-ai
 VERSION_MANIFEST           ?= VERSION
 PROJECT_VERSION            ?= $(shell cat $(VERSION_MANIFEST))
 PROJECT_MAJOR_VERSION      ?= $(shell echo $(PROJECT_VERSION) | cut -f1 -d.)
@@ -25,7 +25,7 @@ AWK_CMD         ?= awk
 SED_CMD         ?= sed
 PYTHON3_CMD     ?= python3
 PIP3_CMD        ?= pip3
-VIRTUALENV_CMD  ?= virtualenv
+VIRTUALENV_CMD  ?= python3 -m virtualenv
 PYTEST_CMD      ?= pytest
 KOPF_CMD        ?= kopf
 
@@ -33,9 +33,11 @@ KOPF_CMD        ?= kopf
 VENV_FOLDER             ?= .venv
 PROJ_REQUIREMENTS_FILE  ?= requirements.txt
 DEV_REQUIREMENTS_FILE   ?= requirements-dev.txt
+CONTAINER_REGISTRY		?= registry.digitalocean.com\/cto-ai
+PULL_SECRET_NAME		?= registry-cto-ai
 
 # Docker related stuff
-CONTROLLER_IMAGE_TAG  ?= $(ORGANIZATION)/$(PROJECT_NAME):v$(PROJECT_VERSION)
+CONTROLLER_IMAGE_TAG  ?= $(CONTAINER_REGISTRY)/$(PROJECT_NAME):v$(PROJECT_VERSION)
 
 # Kubernetes related stuff
 CURRENT_K8S_CLUSTER        ?= $(shell $(KUBECTL_CMD) config current-context)
@@ -77,7 +79,9 @@ release: manifests ## Create release artifacts for the project.
 	@echo "Generating new release manifests for project version $(PROJECT_VERSION) ..."
 	@$(MKDIR_CMD) -p $(RELEASES_FOLDER)/v$(PROJECT_MAJOR_VERSION)
 	@$(KUBECTL_CMD) kustomize $(CONTROLLER_PATH) > $(OPERATOR_RELEASE_MANIFEST)
-	@$(SED_CMD) -i 's/<OPERATOR_RELEASE>/v$(PROJECT_VERSION)/g' $(OPERATOR_RELEASE_MANIFEST)
+	@$(SED_CMD) -i '' 's/<OPERATOR_RELEASE>/v$(PROJECT_VERSION)/g' $(OPERATOR_RELEASE_MANIFEST)
+	@$(SED_CMD) -i '' 's/<CONTAINER_REGISTRY>/$(CONTAINER_REGISTRY)/g' $(OPERATOR_RELEASE_MANIFEST)
+	@$(SED_CMD) -i '' 's/<PULL_SECRET_NAME>/$(PULL_SECRET_NAME)/g' $(OPERATOR_RELEASE_MANIFEST)
 
 .PHONY: docker-image
 docker-image: release ## Build controller Docker image for the project.

@@ -8,6 +8,11 @@ from ..schema import OpenAPIV3Schema
 # Final CRD is generated upon below dataclass via `make manifests` command
 # WIP
 
+@dataclass
+class NodeSelector:
+    key: str
+    operation: str
+    values: list[str]
 
 @dataclass
 class StaticRoute(OpenAPIV3Schema):
@@ -37,6 +42,20 @@ class StaticRoute(OpenAPIV3Schema):
             "description": "Gateway to route through",
             "jsonPath": ".spec.gateway",
         },
+        {
+            "name": "Multipath",
+            "type": "string",
+            "priority": 1,
+            "description": "Gateways list for multipath routing",
+            "jsonPath": ".spec.multipath",
+        },
+        {
+            "name": "NodeSelector",
+            "type": "string",
+            "priority": 1,
+            "description": "Sets the policy for apply this route set",
+            "jsonPath": ".spec.nodeSelector",
+        },
     ]
 
     Destination = NewType("Destination", str)
@@ -51,7 +70,22 @@ class StaticRoute(OpenAPIV3Schema):
     )
     gateway: str = field(
         metadata=schema(
-            description="Gateway to route through (required)",
-            pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$",
+            description="Gateway to route through",
+            pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
         )
     )
+
+    IpAddress = NewType("IpAddress", str)
+    schema(
+        pattern="^([0-9]{1,3}\.){3}[0-9]{1,3}$",
+    )(IpAddress)
+
+    multipath: list[IpAddress] = field(
+        
+    )
+
+    nodeSelector: NodeSelector = field(metadata=schema(
+            description="Sets the policy for apply this route set"
+    ))
+
+

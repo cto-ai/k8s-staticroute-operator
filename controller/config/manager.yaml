@@ -1,8 +1,9 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: k8s-staticroute-operator
 spec:
+  replicas: 2
   selector:
     matchLabels:
       name: k8s-staticroute-operator
@@ -12,12 +13,13 @@ spec:
         name: k8s-staticroute-operator
     spec:
       serviceAccountName: k8s-staticroute-operator
-      hostNetwork: true
       tolerations:
         - operator: Exists
+      imagePullSecrets:
+        - name: <PULL_SECRET_NAME>
       containers:
         - name: k8s-staticroute-operator
-          image: digitalocean/k8s-staticroute-operator:<OPERATOR_RELEASE>
+          image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
           imagePullPolicy: Always
           resources:
             requests:
@@ -25,12 +27,16 @@ spec:
             limits:
               memory: "150Mi"
           securityContext:
-            runAsNonRoot: true
             readOnlyRootFilesystem: true
             capabilities:
               add:
                 - NET_ADMIN
           env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: static-route-operator-token
+                  key: service-token
             - name: OPERATOR_NAME
               value: "k8s-staticroute-operator"
             - name: NODE_HOSTNAME

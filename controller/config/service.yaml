@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-staticroute-operator-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: k8s-staticroute-operator-service
+  template:
+    metadata:
+      labels:
+        name: k8s-staticroute-operator-service
+    spec:
+      tolerations:
+        - operator: Exists
+      imagePullSecrets:
+        - name: <PULL_SECRET_NAME>
+      containers:
+        - name: k8s-staticroute-operator-service
+          image: <CONTAINER_REGISTRY>/k8s-staticroute-operator:<OPERATOR_RELEASE>
+          imagePullPolicy: Always
+          args: ["service"]
+          ports:
+          - containerPort: 5000
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: static-route-operator-token
+                  key: service-token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-staticroute-operator-service
+spec:
+  selector:
+    name: k8s-staticroute-operator-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000

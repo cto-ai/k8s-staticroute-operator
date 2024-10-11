@@ -21,6 +21,8 @@ class OpenAPIV3Schema:
 
     @classmethod
     def crd_schema(cls):
+        api_schema = cls.api_schema()
+        api_schema["required"] = ["destinations"]
         crd = {
             "apiVersion": "apiextensions.k8s.io/v1",
             "kind": "CustomResourceDefinition",
@@ -45,7 +47,7 @@ class OpenAPIV3Schema:
                             "openAPIV3Schema": {
                                 "type": "object",
                                 "properties": {
-                                    "spec": cls.api_schema(),
+                                    "spec": api_schema,
                                     "status": {
                                         "x-kubernetes-preserve-unknown-fields": True,
                                         "type": "object",
