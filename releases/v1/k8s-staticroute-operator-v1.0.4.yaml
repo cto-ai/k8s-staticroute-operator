@@ -219,7 +219,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.4
         imagePullPolicy: Always
         name: k8s-staticroute-operator
         resources:
@@ -266,7 +266,7 @@ spec:
             secretKeyRef:
               key: service-token
               name: static-route-operator-token
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.4
         imagePullPolicy: Always
         name: k8s-staticroute-operator-service
         ports:
@@ -307,7 +307,7 @@ spec:
             secretKeyRef:
               key: service-token
               name: static-route-operator-token
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.4
         imagePullPolicy: Always
         name: k8s-staticroute-operator-worker
         resources:
@@ -326,7 +326,7 @@ spec:
       initContainers:
       - args:
         - init
-        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.1
+        image: registry.digitalocean.com/cto-ai/k8s-staticroute-operator:v1.0.4
         imagePullPolicy: Always
         name: init-network
         securityContext:
