@@ -2,11 +2,13 @@ import os, sys, time
 import logging
 import requests
 import json
+from ping3 import ping
 from pyroute2 import IPRoute
 from socket import AF_INET
 from utils import valid_ip_address
 from constants import DEFAULT_GW_CIDR
 from constants import NOT_USABLE_IP_ADDRESS
+
 
 
 api_host=os.environ.get("API_HOST") or "k8s-staticroute-operator-service"
@@ -152,11 +154,22 @@ def list_remove(left,right):
         if item not in right:
             result_list.append(item)
     return result_list
-
+def keep_reachable(routes):
+    for route in routes:
+        if ("multipath" in route) and (route["multipath"] is not None):
+            if len(route["multipath"]):
+                for gw in route["multipath"]:
+                    try:
+                        delay=ping(gw)
+                        logging.info(f"GW {gw} reachable with delay:{delay}")
+                    except:
+                        logging.info(f"GW {gw} NOT RECHABLE")                
+    
 def main():
     while True:
         desired=get_routes(api_url=api_url,token=token,node=node_name)
         current=get_routing_status()
+        keep_reachable(current)
         logging.info(f"[{node_name}] - Current routes: {current}")
         routes_to_del = list_remove(left=current,right=desired)
         routes_to_add = list_remove(left=desired,right=current)
