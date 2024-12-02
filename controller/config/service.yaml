@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: k8s-staticroute-operator-service
 spec:
@@ -29,6 +29,19 @@ spec:
                 secretKeyRef:
                   name: static-route-operator-token
                   key: service-token
+          volumeMounts:
+            - mountPath: "/db"
+              name: routes-db-pvc
+  volumeClaimTemplates:
+  - metadata:
+      name: routes-db-pvc
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: do-block-storage
 ---
 apiVersion: v1
 kind: Service

@@ -22,6 +22,7 @@ else:
     token=raw_token
 
 def get_routes(api_url,token,node):
+    error = False
     data=[]
     try:
         headers = {'content-type': 'application/json', 'Authorization': f'{token}' }
@@ -42,8 +43,9 @@ def get_routes(api_url,token,node):
         logging.info(f"Routes for node [{node}]: {data}")
     except Exception as e:
         logging.info(f'Failed calling API {e}')
+        error = True
     final_result = sorted(data, key=lambda d: d['destination'])
-    return final_result
+    return final_result, error
 
 def manage_static_route(operation, destination, gateway=None, multipath=None):
     operation_success = False
@@ -167,19 +169,21 @@ def keep_reachable(routes):
     
 def main():
     while True:
-        desired=get_routes(api_url=api_url,token=token,node=node_name)
-        current=get_routing_status()
-        keep_reachable(current)
-        logging.info(f"[{node_name}] - Current routes: {current}")
-        routes_to_del = list_remove(left=current,right=desired)
-        routes_to_add = list_remove(left=desired,right=current)
-        logging.info(f"[{node_name}] - Routes to delete: {routes_to_del}")
-        logging.info(f"[{node_name}] - Routes to add: {routes_to_add}")
-        for route in routes_to_del:
-            manage_static_route(operation="del",destination=route["destination"],gateway=route["gateway"],multipath=route["multipath"])
-        for route in routes_to_add:
-            manage_static_route(operation="add",destination=route["destination"],gateway=route["gateway"],multipath=route["multipath"])
-
+        desired, errors=get_routes(api_url=api_url,token=token,node=node_name)
+        if not errors:
+            current=get_routing_status()
+            keep_reachable(current)
+            logging.info(f"[{node_name}] - Current routes: {current}")
+            routes_to_del = list_remove(left=current,right=desired)
+            routes_to_add = list_remove(left=desired,right=current)
+            logging.info(f"[{node_name}] - Routes to delete: {routes_to_del}")
+            logging.info(f"[{node_name}] - Routes to add: {routes_to_add}")
+            for route in routes_to_del:
+                manage_static_route(operation="del",destination=route["destination"],gateway=route["gateway"],multipath=route["multipath"])
+            for route in routes_to_add:
+                manage_static_route(operation="add",destination=route["destination"],gateway=route["gateway"],multipath=route["multipath"])
+        else:
+            logging.info(f"[{node_name}] - Unable to reach the API, Keeping the last known state")
         time.sleep(30)
 
 if __name__ == '__main__':

@@ -239,7 +239,7 @@ spec:
       - operator: Exists
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   annotations:
     provider: digitalocean
@@ -271,10 +271,23 @@ spec:
         name: k8s-staticroute-operator-service
         ports:
         - containerPort: 5000
+        volumeMounts:
+        - mountPath: /db
+          name: routes-db-pvc
       imagePullSecrets:
       - name: registry-cto-ai
       tolerations:
       - operator: Exists
+  volumeClaimTemplates:
+  - metadata:
+      name: routes-db-pvc
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: do-block-storage
 ---
 apiVersion: apps/v1
 kind: DaemonSet
